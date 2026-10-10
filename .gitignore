@@ -1,10 +1,13 @@
 node_modules/
 dist/
 __pycache__/
+**/__pycache__/
+*.pyc
 *.py[cod]
 .venv/
 venv/
 .env
+backend/.env
 .env.*
 !.env.example
 backend/data/saved_posts.json
