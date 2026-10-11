@@ -1,4 +1,5 @@
 import React from "react";
+import TopicArtwork from "./TopicArtwork";
 
 function MinimalPoster({ design }) {
   const { points, currentSlide, totalSlides, isCarousel } = design;
@@ -9,10 +10,11 @@ function MinimalPoster({ design }) {
   const insight = points[Math.min(currentSlide, points.length - 1)] || design.summary;
 
   return (
-    <div className="poster-layout minimal-layout">
+    <div className={`poster-layout minimal-layout poster-variant-${design.contentAnalysis?.layoutVariant || "lead-led"}`}>
+      <TopicArtwork design={design} variant="minimal" />
       <header className="minimal-header">
         <span>{design.category || "EDITORIAL / INSIGHT"}</span>
-        <span>{design.platform}</span>
+        <span>{design.platform} / {design.format}</span>
       </header>
       <div className="minimal-number">{String(currentSlide + 1).padStart(2, "0")}</div>
       <h1 className="minimal-title">{isTakeaway ? "A CLOSER LOOK" : design.title}</h1>

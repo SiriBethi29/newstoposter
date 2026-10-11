@@ -1,4 +1,5 @@
 import React from "react";
+import TopicArtwork from "./TopicArtwork";
 
 function ResearchPoster({ design }) {
   const { points, currentSlide, totalSlides, isCarousel } = design;
@@ -8,13 +9,14 @@ function ResearchPoster({ design }) {
   const isTakeaway = isCarousel && currentSlide === totalSlides - 1;
 
   return (
-    <div className="poster-layout research-layout">
+    <div className={`poster-layout research-layout poster-variant-${design.contentAnalysis?.layoutVariant || "lead-led"}`}>
+      <TopicArtwork design={design} variant="research" />
       <header className="research-header">
         <span className="research-symbol">N<span>2</span>P</span>
         <span>RESEARCH INSIGHT</span>
       </header>
       <div className="research-meta">
-        <span>FIELD NOTE / {design.category || "KNOWLEDGE"}</span>
+        <span>{design.platform} / {design.format} · FIELD NOTE / {design.category || "KNOWLEDGE"}</span>
         <span>{String(currentSlide + 1).padStart(2, "0")}</span>
       </div>
       <h1 className="research-title">{isTakeaway ? "KEY TAKEAWAY" : design.title}</h1>

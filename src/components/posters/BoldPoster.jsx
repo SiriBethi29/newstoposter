@@ -1,4 +1,5 @@
 import React from "react";
+import TopicArtwork from "./TopicArtwork";
 
 function BoldPoster({ design }) {
   const { points, currentSlide, totalSlides, isCarousel } = design;
@@ -8,7 +9,8 @@ function BoldPoster({ design }) {
   const isTakeaway = isCarousel && currentSlide === totalSlides - 1;
 
   return (
-    <div className={`poster-layout bold-layout ${isCover ? "bold-cover" : ""}`}>
+    <div className={`poster-layout bold-layout poster-variant-${design.contentAnalysis?.layoutVariant || "lead-led"} ${isCover ? "bold-cover" : ""}`}>
+      <TopicArtwork design={design} variant="bold" />
       <div className="bold-geometry bold-geometry-one" />
       <div className="bold-geometry bold-geometry-two" />
       <header className="bold-header">

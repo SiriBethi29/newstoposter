@@ -21,10 +21,20 @@ import {
   savePost,
   uploadFile
 } from "../services/api";
+import { generateTopicContent } from "../utils/topicGenerator";
+import { analyzeContent } from "../utils/contentAnalyzer";
+import { getContentVisual } from "../utils/contentVisuals";
+import { waitForPosterImages } from "../utils/waitForImages";
+
+const POSTER_STYLES = ["Modern", "Minimal", "News", "Research", "Bold"];
+const DEFAULT_POSTER_STYLE = POSTER_STYLES[0];
 
 function Create() {
 
   const [content, setContent] = useState("");
+  const [topic, setTopic] = useState("");
+  const [inputMode, setInputMode] = useState("content");
+  const [variations, setVariations] = useState([]);
 
   const [url, setUrl] = useState("");
 
@@ -34,7 +44,7 @@ function Create() {
 
   const [tone, setTone] = useState("Professional");
 
-  const [style, setStyle] = useState("Modern");
+  const [selectedStyle, setSelectedStyle] = useState(DEFAULT_POSTER_STYLE);
 
   const [theme, setTheme] = useState("purple");
 
@@ -63,7 +73,7 @@ function Create() {
     source: "News2Posts",
     platform: "Instagram",
     format: "Social Post",
-    style: "Modern",
+    style: DEFAULT_POSTER_STYLE,
     theme: "purple",
     slides: [
       {
@@ -80,25 +90,40 @@ function Create() {
   });
 
   const createDesign = async () => {
-    const articleText = content.trim();
+    const articleText = inputMode === "topic" ? topic.trim() : content.trim();
     if (!articleText) {
-      setError("Enter article content or extract content from a URL or file first.");
+      setError(inputMode === "topic" ? "Enter a topic to get started." : "Enter article content or extract content from a URL or file first.");
       return;
     }
 
     setError("");
     setMessage("");
-    setLoading("generate");
+    setLoading(inputMode === "topic" ? "Analyzing topic..." : "generate");
     const options = {
       content: articleText,
       format,
       platform,
       tone,
-      style,
+      style: selectedStyle,
       theme: theme.charAt(0).toUpperCase() + theme.slice(1)
     };
 
     try {
+      if (inputMode === "topic") {
+        const phases = ["Analyzing topic...", "Creating content...", "Selecting visuals...", "Designing poster..."];
+        for (const phase of phases) {
+          setLoading(phase);
+          await new Promise((resolve) => window.setTimeout(resolve, 350));
+        }
+        const generatedDesign = generateTopicContent(articleText, options);
+        setDesign({ ...generatedDesign, posterLayout: format === "Carousel" ? "" : generatedDesign.suggestedLayout, variation: "" });
+        setGenerated(true);
+        setSlide(0);
+        setSaved(false);
+        setVariations([]);
+        setMessage("Poster ready!");
+        return;
+      }
       const result =
         format === "Carousel"
           ? await generateCarousel(options)
@@ -121,8 +146,9 @@ function Create() {
         platform: result.platform || platform,
         format: result.format || format,
         tone: result.tone || tone,
-        style: result.style || style,
-        theme: (result.theme || options.theme).toLowerCase(),
+        style: selectedStyle,
+        theme,
+        originalContent: articleText,
         slides: slides?.length
           ? slides
           : [{
@@ -136,11 +162,28 @@ function Create() {
       setGenerated(true);
       setSlide(0);
       setSaved(false);
+      setVariations([]);
     } catch (requestError) {
       setError(requestError.message || "Content generation failed. Please try again.");
     } finally {
       setLoading("");
     }
+  };
+
+  const generateVariations = () => {
+    const options = [
+      { id: "image-led", label: "Image-led", layout: "imageHero" },
+      { id: "editorial", label: "Editorial", layout: "editorial" },
+      { id: "infographic", label: "Infographic", layout: "infographic" }
+    ];
+    setVariations(options);
+    setDesign((current) => ({ ...current, variation: options[0].id, posterLayout: options[0].layout }));
+    setSaved(false);
+  };
+
+  const selectVariation = (variation) => {
+    setDesign((current) => ({ ...current, variation: variation.id, posterLayout: variation.layout }));
+    setSaved(false);
   };
 
   const handleFile = async (event) => {
@@ -199,10 +242,12 @@ function Create() {
     if (!designRef.current) return;
 
     try {
+      await waitForPosterImages(designRef.current);
       const canvas = await html2canvas(designRef.current, {
         scale: 2,
         backgroundColor: null,
-        useCORS: true
+        useCORS: true,
+        allowTaint: false
       });
 
       const mime = type === "jpg" ? "image/jpeg" : "image/png";
@@ -239,6 +284,10 @@ function Create() {
     setError("");
     setMessage("");
     setLoading("save");
+    const contentAnalysis = analyzeContent({ title: design.title, summary: design.summary, points: design.points, content: design.originalContent });
+    const selectedVisual = design.selectedVisual?.startsWith("http")
+      ? design.selectedVisual
+      : getContentVisual(design.selectedVisual || contentAnalysis.categoryKey).image;
     const post = {
       id: design.id || String(Date.now()),
       title: design.title,
@@ -251,6 +300,12 @@ function Create() {
       tone: design.tone,
       style: design.style,
       theme: design.theme.charAt(0).toUpperCase() + design.theme.slice(1),
+      category: contentAnalysis.category,
+      visual_keywords: design.visualKeywords || contentAnalysis.visualKeywords,
+      selected_visual: selectedVisual,
+      layout: design.posterLayout || design.suggestedLayout || contentAnalysis.suggestedLayout,
+      variation: design.variation || "",
+      original_content: design.originalContent || "",
       created_at: new Date().toISOString(),
       slides: design.slides.map((item, index) => ({
         slide_number: index + 1,
@@ -341,19 +396,20 @@ function Create() {
           {/* CONTENT */}
           <div className="form-group">
 
-            <label>
-              News / Research Content
-            </label>
+            <div className="input-mode-tabs" role="tablist" aria-label="Input mode">
+              <button type="button" role="tab" aria-selected={inputMode === "content"} className={inputMode === "content" ? "active" : ""} onClick={() => { setInputMode("content"); setError(""); }}>Paste Content</button>
+              <button type="button" role="tab" aria-selected={inputMode === "topic"} className={inputMode === "topic" ? "active" : ""} onClick={() => { setInputMode("topic"); setError(""); }}>Enter Topic</button>
+            </div>
+
+            <label>{inputMode === "topic" ? "Topic" : "News / Research Content"}</label>
 
             <textarea
-              value={content}
-              onChange={(e) =>
-                setContent(e.target.value)
-              }
-              placeholder="Paste your news article, research summary or important information here..."
+              value={inputMode === "topic" ? topic : content}
+              onChange={(e) => inputMode === "topic" ? setTopic(e.target.value) : setContent(e.target.value)}
+              placeholder={inputMode === "topic" ? "Example: Latest AI technologies in 2026" : "Paste your news article, research summary or important information here..."}
             />
 
-            <div className="input-actions">
+            {inputMode === "content" && <div className="input-actions">
 
               <label className="upload-button">
 
@@ -375,12 +431,12 @@ function Create() {
                 {loading === "upload" ? "Uploading..." : "TXT, MD or CSV"}
               </span>
 
-            </div>
+            </div>}
 
           </div>
 
           {/* URL */}
-          <div className="form-group">
+          {inputMode === "content" && <div className="form-group">
 
             <label>
               Article URL
@@ -408,7 +464,7 @@ function Create() {
               {loading === "extract" ? "Extracting..." : "Extract Article"}
             </button>
 
-          </div>
+          </div>}
 
           {/* FORMAT */}
           <div className="form-group">
@@ -500,23 +556,17 @@ function Create() {
 
             <div className="choice-grid">
 
-              {[
-                "Modern",
-                "Minimal",
-                "News",
-                "Research",
-                "Bold"
-              ].map((item) => (
+              {POSTER_STYLES.map((item) => (
 
                 <button
                   key={item}
                   className={
-                    style === item
+                    selectedStyle === item
                       ? "choice active"
                       : "choice"
                   }
                   onClick={() => {
-                    setStyle(item);
+                    setSelectedStyle(item);
                     setDesign((current) => ({
                       ...current,
                       style: item
@@ -580,15 +630,14 @@ function Create() {
           </div>
 
           {/* GENERATE */}
+          {inputMode === "topic" && loading && loading !== "generate" && <div className="topic-progress" role="status">{loading}</div>}
           <button
             className="generate-button"
             onClick={createDesign}
             disabled={Boolean(loading)}
           >
             <Sparkles size={19} />
-            {loading === "generate"
-              ? format === "Carousel" ? "Generating Carousel..." : "Generating..."
-              : "Generate Poster"}
+            {inputMode === "topic" && loading ? loading : loading === "generate" ? format === "Carousel" ? "Generating Carousel..." : "Generating..." : inputMode === "topic" ? "Generate from Topic" : "Generate Poster"}
           </button>
 
         </section>
@@ -618,13 +667,19 @@ function Create() {
 
             <PostDesign
               design={design}
+              selectedStyle={selectedStyle}
               slide={slide}
               designRef={designRef}
             />
 
           </div>
           <div className="design-indicator" aria-live="polite">
-            DESIGN: {style.toUpperCase()}
+            DESIGN: {selectedStyle.toUpperCase()} / {design.posterLayout || design.suggestedLayout || "EDITORIAL"}
+          </div>
+
+          <div className="variation-controls">
+            <button type="button" className="secondary-button" onClick={generateVariations} disabled={!generated || Boolean(loading)}>Generate Variations</button>
+            {variations.length > 0 && <div className="variation-options">{variations.map((variation) => <button key={variation.id} type="button" className={design.variation === variation.id ? "choice active" : "choice"} onClick={() => selectVariation(variation)}>{variation.label}</button>)}</div>}
           </div>
 
           {/* SLIDES */}

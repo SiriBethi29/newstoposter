@@ -14,6 +14,9 @@ import {
   getSavedPost,
   getSavedPosts
 } from "../services/api";
+import { analyzeContent } from "../utils/contentAnalyzer";
+import { getContentVisual } from "../utils/contentVisuals";
+import { waitForPosterImages } from "../utils/waitForImages";
 
 function Saved() {
 
@@ -89,9 +92,12 @@ function Saved() {
     }
 
     try {
+      await waitForPosterImages(element);
       const canvas = await html2canvas(element, {
         scale: 2,
-        backgroundColor: null
+        backgroundColor: null,
+        useCORS: true,
+        allowTaint: false
       });
       const link = document.createElement("a");
       link.download = `news2posts-${item.id}.png`;
@@ -369,8 +375,17 @@ function normalizeSavedPost(post) {
     points: item.points || []
   }));
 
+  const analysis = analyzeContent({ title: post.title, summary: post.summary, points: post.points, content: post.original_content || "" });
+  const visual = getContentVisual(analysis.categoryKey);
   return {
     ...post,
+    category: post.category || analysis.category,
+    visual_keywords: post.visual_keywords || analysis.visualKeywords,
+    selected_visual: post.selected_visual || visual.image,
+    layout: post.layout || analysis.suggestedLayout,
+    style: post.style || "Modern",
+    platform: post.platform || "Instagram",
+    format: post.format || "Social Post",
     theme: (post.theme || "purple").toLowerCase(),
     points: post.points || [],
     slides: slides.length

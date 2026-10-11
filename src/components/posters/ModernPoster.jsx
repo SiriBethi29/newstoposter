@@ -1,4 +1,5 @@
 import React from "react";
+import TopicArtwork from "./TopicArtwork";
 
 function ModernPoster({ design }) {
   const { points, currentSlide, totalSlides, isCarousel } = design;
@@ -8,9 +9,8 @@ function ModernPoster({ design }) {
   const isTakeaway = isCarousel && currentSlide === totalSlides - 1;
 
   return (
-    <div className={`poster-layout modern-layout ${isCover ? "modern-cover" : ""}`}>
-      <div className="modern-orb modern-orb-one" />
-      <div className="modern-orb modern-orb-two" />
+    <div className={`poster-layout modern-layout poster-variant-${design.contentAnalysis?.layoutVariant || "lead-led"} ${isCover ? "modern-cover" : ""}`}>
+      <TopicArtwork design={design} variant="modern" />
       <header className="modern-header">
         <span className="modern-brand">N2P</span>
         <span className="modern-category">{design.category || "NEWS & RESEARCH"}</span>

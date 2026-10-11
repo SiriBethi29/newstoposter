@@ -1,4 +1,5 @@
 import React from "react";
+import TopicArtwork from "./TopicArtwork";
 
 function NewsPoster({ design }) {
   const { points, currentSlide, totalSlides, isCarousel } = design;
@@ -7,10 +8,11 @@ function NewsPoster({ design }) {
   const isTakeaway = isCarousel && currentSlide === totalSlides - 1;
 
   return (
-    <div className="poster-layout news-layout">
+    <div className={`poster-layout news-layout poster-variant-${design.contentAnalysis?.layoutVariant || "lead-led"}`}>
+      <TopicArtwork design={design} variant="news" />
       <header className="news-masthead">
         <span className="news-wordmark">NEWS2POSTS</span>
-        <span className="news-edition">{design.platform} EDITION</span>
+        <span className="news-edition">{design.platform} / {design.format} EDITION</span>
       </header>
       <div className="news-heavy-rule" />
       <div className="news-section-label">
